@@ -10,8 +10,11 @@ extern crate glutin_window;
 extern crate opengl_graphics;
 
 pub mod graphics_00;
-pub mod specs_test;
+pub mod input;
 
+use crate::input::ArrowKeysPressed;
+use piston_window::Button::Keyboard;
+use crate::input::KeyboardSystem;
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
@@ -21,6 +24,8 @@ use opengl_graphics::{ GlGraphics, OpenGL };
 use graphics_00::{ DrawClear, DrawRectangles, ApplySpin, register_spin_rect };
 use specs::{ DispatcherBuilder, World, Dispatcher };
 
+use std::env;
+
 
 pub fn start() {
 
@@ -28,30 +33,63 @@ pub fn start() {
 
     let ( mut render_dispatcher, mut window) = setup_graphics(&mut world);
 
-    let mut update_dispatcher = DispatcherBuilder::new() //dispatches all given systems in order
+    let mut update_dispatcher = DispatcherBuilder::new()
         .with(ApplySpin, "apply_spin", &[])
+        .with(KeyboardSystem, "keyboard_system", &[])
         .build();
     update_dispatcher.setup(&mut world.res);
 
-    // Only the second entity will get a position update,
-    // because the first one does not have a velocity.
     register_spin_rect(&mut world);
 
     let mut events = Events::new(EventSettings::new());
+
+    let debug = env::var("DEBUG").is_ok();
     while let Some(e) = events.next(&mut window) {
+
+        //TODO this doesn't work because its re-initialized during the update event, so the prior keys are lost
+        let mut arrow_keys = ArrowKeysPressed { up: false, left: false, right: false, down: false };
 
         if let Some(r) = e.render_args() {
             world.add_resource(r);
-            render_dispatcher.dispatch(&mut world.res); //dispatch all systems
-            world.maintain(); //update entity registry with any changes that occured in the Systems
+            render_dispatcher.dispatch(&mut world.res);
+            world.maintain();
+        }
+
+        if let Some(Keyboard(k)) = e.press_args() {
+            println!("Keyboard key pressed");
+            if k == Key::Up {
+                println!("up");
+                arrow_keys.up = true;
+            }
+
+            if k == Key::Left {
+                println!("left");
+                arrow_keys.left = true;
+            }
+
+            if k == Key::Right {
+                println!("right");
+                arrow_keys.right = true;
+            }
+
+            if k == Key::Down {
+                println!("down");
+                arrow_keys.down = true;
+            }
+
         }
 
         if let Some(u) = e.update_args() {
+            world.add_resource(u);
+            println!("Arrow keys: {:?}", arrow_keys);
+            world.add_resource(arrow_keys);
             update_dispatcher.dispatch(&mut world.res);
             world.maintain();
         }
 
-        
+        if debug {
+            debug_input_event(e);
+        }
     }
 }
 
@@ -72,17 +110,48 @@ fn setup_graphics(world: &mut World) -> (Dispatcher<'static, 'static>, Window) {
 
     let graphics_handle = GlGraphics::new(opengl);
 
-    let mut dispatcher = DispatcherBuilder::new() //dispatches all given systems in order
+    let mut dispatcher = DispatcherBuilder::new()
         .with_thread_local(DrawClear)
         .with_thread_local(DrawRectangles)
-        // .with(UpdatePos, "update_pos", &["hello_world"]) //update position will run after hello world has run
-        // .with(HelloWorld, "hello_updated", &["update_pos"]) //hello_updated will run after update_pos has run
-        //.with_thread_local(RenderSys); this is here to remind how to render components properly
         .build();
 
     world.add_resource(graphics_handle);
 
-    dispatcher.setup(&mut world.res); //register all Components, setup any Resources with Default implementations
+    dispatcher.setup(&mut world.res);
 
     (dispatcher, window)
+}
+
+fn debug_input_event(e: Event) {
+
+    if let Some(Button::Mouse(button)) = e.press_args() {
+            println!("Pressed mouse button '{:?}'", button);
+        }
+
+        if let Some(Button::Keyboard(key)) = e.press_args() {
+            println!("Pressed keyboard key '{:?}'", key);
+        }
+
+        if let Some(button) = e.release_args() {
+            match button {
+                Button::Keyboard(key) => println!("Released keyboard key '{:?}'", key),
+                Button::Mouse(button) => println!("Released mouse button '{:?}'", button),
+                Button::Controller(button) => println!("Released controller button '{:?}'", button),
+                Button::Hat(hat) => println!("Released controller hat `{:?}`", hat),
+            }
+        }
+       
+        e.mouse_cursor(|x, y| {
+            println!("Mouse moved '{} {}'", x, y);
+        });
+        
+        e.mouse_scroll(|dx, dy| println!("Scrolled mouse '{}, {}'", dx, dy));
+        e.mouse_relative(|dx, dy| println!("Relative mouse moved '{} {}'", dx, dy));
+        e.text(|text| println!("Typed '{}'", text));
+        e.resize(|w, h| println!("Resized '{}, {}'", w, h));
+        if let Some(cursor) = e.cursor_args() {
+            if cursor { println!("Mouse entered"); }
+            else { println!("Mouse left"); }
+        };
+
 }

@@ -1,3 +1,5 @@
+use crate::input::KeyboardMotionControl;
+use piston_window::UpdateArgs;
 use piston::input::RenderArgs;
 use opengl_graphics::{ GlGraphics };
 use specs::{ Builder, Component, ReadStorage, WriteStorage, System, VecStorage, World, ReadExpect, WriteExpect };
@@ -6,8 +8,8 @@ use specs::{ Builder, Component, ReadStorage, WriteStorage, System, VecStorage, 
 #[storage(VecStorage)]
 pub struct Rectangle {
 
-    width: f32,
-    height: f32
+    width: f64,
+    height: f64
 
 }
 
@@ -15,8 +17,8 @@ pub struct Rectangle {
 #[storage(VecStorage)]
 pub struct Position {
 
-    x: f32,
-    y: f32
+    pub x: f64,
+    pub y: f64
 
 }
 
@@ -31,8 +33,9 @@ pub fn register_spin_rect(world: &mut World) {
 
     world.create_entity()
         .with(Position { x: 0.0, y: 0.0 })
-        .with(Spin { rotation: 0.0, angular_velocity: 0.1 })
+        .with(Spin { rotation: 0.0, angular_velocity: 0.5 })
         .with(Rectangle { width: 50.0, height: 50.0 })
+        .with(KeyboardMotionControl {})
         .build();
 
     world.create_entity()
@@ -48,19 +51,19 @@ pub fn register_spin_rect(world: &mut World) {
         .build();
 
     world.create_entity()
-        .with(Position { x: 0.0, y: 350.0 })
+        .with(Position { x: 100.0, y: 350.0 })
         .with(Spin { rotation: 0.0, angular_velocity: 0.1 })
-        .with(Rectangle { width: 50.0, height: 50.0 })
+        .with(Rectangle { width: 50.0, height: 25.0 })
         .build();
 
     world.create_entity()
         .with(Position { x: 0.0, y: 250.0 })
-        .with(Spin { rotation: 0.0, angular_velocity: 0.1 })
-        .with(Rectangle { width: 50.0, height: 50.0 })
+        .with(Spin { rotation: 0.0, angular_velocity: 1.0 })
+        .with(Rectangle { width: 50.0, height: 150.0 })
         .build();
 
     world.create_entity()
-        .with(Position { x: 0.0, y: 50.0 })
+        .with(Position { x: 50.0, y: 50.0 })
         .with(Spin { rotation: 0.0, angular_velocity: 0.1 })
         .with(Rectangle { width: 50.0, height: 50.0 })
         .build();
@@ -82,7 +85,7 @@ impl<'a> System<'a> for DrawClear {
 
         use graphics::*;
 
-        g_handle.draw(args.viewport(), |c, gl| {
+        g_handle.draw(args.viewport(), |_, gl| {
             // Clear the screen.
             clear(GREEN, gl);
 
@@ -114,17 +117,16 @@ impl<'a> System<'a> for DrawRectangles {
 
             const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
-            let square = rectangle::square(0.0, 0.0, rect.width.into());
-            // let rotation = self.rotation;
-            let (x, y) = (pos.x, pos.y);
+            let square = rectangle::square(0.0, 0.0, 1.0);
 
             g_handle.draw(args.viewport(), |c, gl| {
 
                 let transform = c.transform
-                .trans(args.width/2.0, args.height/2.0)
+                .trans(pos.x + rect.width / 2.0, pos.y + rect.height / 2.0)
                 .rot_rad(spin.rotation)
-                .trans(x as f64 - 25.0, y as f64 - 25.0);
-
+                .trans(- rect.width / 2.0, - rect.height / 2.0)
+                .scale(rect.width, rect.height);
+                
                 // Draw a box rotating around the middle of the screen.
                 rectangle(RED, square, transform, gl);
 
@@ -138,16 +140,17 @@ pub struct ApplySpin;
 
 impl<'a> System<'a> for ApplySpin {
     type SystemData = (
-        WriteStorage<'a, Spin>);
+        WriteStorage<'a, Spin>,
+        ReadExpect<'a, UpdateArgs>);
 
     fn run(&mut self, data: Self::SystemData) {
         use specs::Join;
 
-        let mut spin_dat = data;
+        let (mut spin_dat, args) = data;
 
         for mut spin in (&mut spin_dat).join() {
             
-            spin.rotation += spin.angular_velocity;
+            spin.rotation += spin.angular_velocity * args.dt;
 
         }
     }
