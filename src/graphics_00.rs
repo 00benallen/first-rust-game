@@ -35,7 +35,7 @@ pub fn register_spin_rect(world: &mut World) {
         .with(Position { x: 0.0, y: 0.0 })
         .with(Spin { rotation: 0.0, angular_velocity: 0.5 })
         .with(Rectangle { width: 50.0, height: 50.0 })
-        .with(KeyboardMotionControl {})
+        .with(KeyboardMotionControl { velocity: 1.0 })
         .build();
 
     world.create_entity()
@@ -81,21 +81,19 @@ impl<'a> System<'a> for DrawClear {
 
         let (mut g_handle, args) = data;
 
-        const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
+        const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
         use graphics::*;
 
         g_handle.draw(args.viewport(), |_, gl| {
             // Clear the screen.
-            clear(GREEN, gl);
+            clear(BLACK, gl);
 
         });
     }
 }
 
 
-
-//Create a struct for using as a system, can totally have internal data btw
 pub struct DrawRectangles;
 
 impl<'a> System<'a> for DrawRectangles {
@@ -115,7 +113,7 @@ impl<'a> System<'a> for DrawRectangles {
             
             use graphics::*;
 
-            const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+            const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
             let square = rectangle::square(0.0, 0.0, 1.0);
 
@@ -127,7 +125,6 @@ impl<'a> System<'a> for DrawRectangles {
                 .trans(- rect.width / 2.0, - rect.height / 2.0)
                 .scale(rect.width, rect.height);
                 
-                // Draw a box rotating around the middle of the screen.
                 rectangle(RED, square, transform, gl);
 
             });

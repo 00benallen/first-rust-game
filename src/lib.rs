@@ -39,15 +39,14 @@ pub fn start() {
         .build();
     update_dispatcher.setup(&mut world.res);
 
+    world.add_resource(ArrowKeysPressed { up: false, left: false, right: false, down: false });
+
     register_spin_rect(&mut world);
 
     let mut events = Events::new(EventSettings::new());
 
     let debug = env::var("DEBUG").is_ok();
     while let Some(e) = events.next(&mut window) {
-
-        //TODO this doesn't work because its re-initialized during the update event, so the prior keys are lost
-        let mut arrow_keys = ArrowKeysPressed { up: false, left: false, right: false, down: false };
 
         if let Some(r) = e.render_args() {
             world.add_resource(r);
@@ -59,30 +58,52 @@ pub fn start() {
             println!("Keyboard key pressed");
             if k == Key::Up {
                 println!("up");
-                arrow_keys.up = true;
+                world.write_resource::<ArrowKeysPressed>().up = true;
             }
 
             if k == Key::Left {
                 println!("left");
-                arrow_keys.left = true;
+                world.write_resource::<ArrowKeysPressed>().left = true;
             }
 
             if k == Key::Right {
                 println!("right");
-                arrow_keys.right = true;
+                world.write_resource::<ArrowKeysPressed>().right = true;
             }
 
             if k == Key::Down {
                 println!("down");
-                arrow_keys.down = true;
+                world.write_resource::<ArrowKeysPressed>().down = true;
+            }
+
+        }
+
+        if let Some(Keyboard(k)) = e.release_args() {
+            println!("Keyboard key pressed");
+            if k == Key::Up {
+                println!("up");
+                world.write_resource::<ArrowKeysPressed>().up = false;
+            }
+
+            if k == Key::Left {
+                println!("left");
+                world.write_resource::<ArrowKeysPressed>().left = false;
+            }
+
+            if k == Key::Right {
+                println!("right");
+                world.write_resource::<ArrowKeysPressed>().right = false;
+            }
+
+            if k == Key::Down {
+                println!("down");
+                world.write_resource::<ArrowKeysPressed>().down = false;
             }
 
         }
 
         if let Some(u) = e.update_args() {
             world.add_resource(u);
-            println!("Arrow keys: {:?}", arrow_keys);
-            world.add_resource(arrow_keys);
             update_dispatcher.dispatch(&mut world.res);
             world.maintain();
         }
